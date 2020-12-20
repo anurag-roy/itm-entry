@@ -6,7 +6,7 @@ import axios from "axios";
 import "./StockInputForm.css";
 import { blue } from "@ant-design/colors";
 
-const StockInputForm = ({ label, handleChange, iType, changeIType }) => {
+const StockInputForm = ({ label, handleChange, transactionType, changeTransactionType }) => {
   const [names, setNames] = useState([]);
   const [name, setName] = useState(localStorage.getItem(`${label}.name`) || "NIFTY");
   const [selected, setSelected] = useState(false);
@@ -16,16 +16,16 @@ const StockInputForm = ({ label, handleChange, iType, changeIType }) => {
   );
   const [expiry, setExpiry] = useState(localStorage.getItem(`${label}.expiry`) || "");
   const [quantity, setQuantity] = useState(localStorage.getItem(`${label}.quantity`) || 75);
-  const tType = label === "A" ? "SELL": "BUY";
+  const iType = label === "A" ? "CE" : "PE";
 
   useEffect(() => {
-    axios.get("http://localhost:4999/mapper/names").then((result) => {
+    axios.get("http://localhost:8001/mapper/names").then((result) => {
       setNames(result.data);
     });
   }, []);
 
   useEffect(() => {
-    axios.get("http://localhost:4999/mapper/byName", { params: { name: name } }).then((result) => {
+    axios.get("http://localhost:8001/mapper/byName", { params: { name: name } }).then((result) => {
       setData(result.data);
       // setExpiry("");
       // setStrikePrice("");
@@ -39,12 +39,12 @@ const StockInputForm = ({ label, handleChange, iType, changeIType }) => {
       setSelected(true);
       handleChange({
         ...x,
-        transactionType: tType,
+        transactionType: transactionType,
         product: "MIS",
         quantity: parseInt(quantity),
       });
     }
-  }, [data, name, expiry, strikePrice, iType, tType, quantity, handleChange]);
+  }, [data, name, expiry, strikePrice, iType, transactionType, quantity, handleChange]);
 
   const mapToStrikePrice = (stockArray) => {
     if (stockArray.length === 0) return [];
@@ -127,17 +127,7 @@ const StockInputForm = ({ label, handleChange, iType, changeIType }) => {
         ></Select>
       </div>
       <div className="input_element">
-        <Select
-          size="large"
-          value={iType}
-          options={["CE", "PE"].map((d) => {
-            return { label: d, value: d };
-          })}
-          onSelect={(newValue) => {
-            localStorage.setItem("iType", newValue);
-            changeIType(newValue);
-          }}
-        ></Select>
+        <Select size="large" value={iType} disabled></Select>
       </div>
       <div className="input_element">
         <InputNumber
@@ -153,8 +143,14 @@ const StockInputForm = ({ label, handleChange, iType, changeIType }) => {
       <div className="input_element">
         <Select
           size="large"
-          value={tType}
-          disabled
+          value={transactionType}
+          options={["BUY", "SELL"].map((d) => {
+            return { label: d, value: d };
+          })}
+          onSelect={(newValue) => {
+            localStorage.setItem("transactionType", newValue);
+            changeTransactionType(newValue);
+          }}
         ></Select>
       </div>
       {selected ? (

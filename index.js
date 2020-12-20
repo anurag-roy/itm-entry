@@ -30,17 +30,17 @@ const order = async (stock, price) => {
   );
   console.log(`Time of order: ${timestamp.toUTCString()}`);
 
-  // return kc.placeOrder("regular", {
-  //   exchange: stock.exchange,
-  //   tradingsymbol: stock.tradingsymbol,
-  //   transaction_type: stock.transactionType,
-  //   quantity: stock.quantity,
-  //   product: "MIS",
-  //   price: price,
-  //   order_type: "LIMIT",
-  // });
+  return kc.placeOrder("regular", {
+    exchange: stock.exchange,
+    tradingsymbol: stock.tradingsymbol,
+    transaction_type: stock.transactionType,
+    quantity: stock.quantity,
+    product: "MIS",
+    price: price,
+    order_type: "LIMIT",
+  });
 
-  return `Order placed for ${stock.exchange}:${stock.tradingsymbol}, Transaction: ${stock.transactionType}, product: ${stock.product}, quantity: ${stock.quantity}`;
+  // return `Order placed for ${stock.exchange}:${stock.tradingsymbol}, Transaction: ${stock.transactionType}, product: ${stock.product}, quantity: ${stock.quantity}`;
 };
 
 const placeOrder = async (stockArray, priceArray) => {
@@ -56,13 +56,20 @@ const placeOrder = async (stockArray, priceArray) => {
   console.log(positions);
 };
 
-app.post("/itmEntry", ({ body }, response) => {
-  itmEntry(body.stockA, body.stockB, body.entryPrice);
+app.post("/itmEntrySELL", ({ body }, response) => {
+  console.log(body);
+  itmEntrySell(body.stockA, body.stockB, body.entryPrice);
   response.send("Check console.");
 });
 
-// ITM Entry Strategy
-const itmEntry = (stockA, stockB, entryPrice) => {
+app.post("/itmEntryBUY", ({ body }, response) => {
+  console.log(body);
+  itmEntryBuy(body.stockA, body.stockB, body.entryPrice);
+  response.send("Check console.");
+});
+
+// ITM Entry Strategy (Sell)
+const itmEntrySell = (stockA, stockB, entryPrice) => {
   // Extract instruments tokens for each stock
   const aToken = parseInt(stockA.instrument_token);
   const bToken = parseInt(stockB.instrument_token);
@@ -139,6 +146,84 @@ const itmEntry = (stockA, stockB, entryPrice) => {
   });
 };
 
-app.listen(80001, () => {
+// ITM Entry Strategy (Buy)
+const itmEntryBuy = (stockA, stockB, entryPrice) => {
+  // Extract instruments tokens for each stock
+  const aToken = parseInt(stockA.instrument_token);
+  const bToken = parseInt(stockB.instrument_token);
+  const niftyToken = 256265;
+
+  // Extract strike prices for each stock
+  const aStrikePrice = parseInt(stockA.strike_price);
+  const bStrikePrice = parseInt(stockB.strike_price);
+
+  // Declare variables which will be updated on each tick
+  let aSellersBid, bSellersBid, niftyPrice;
+
+  // Flag to determine if order is already placed or not
+  let placedOrder = false;
+
+  // Entry Condition for Butterfly strategy
+  const lookForEntry = () => {
+    const aNet = niftyPrice - (aStrikePrice + aSellersBid);
+    const bNet = bStrikePrice - bSellersBid - niftyPrice;
+
+    if (aNet > 0 && bNet > 0 && aNet + bNet >= entryPrice) {
+      console.log(
+        `aNet: ${aNet}, bNet: ${bNet}, net: ${
+          aNet + bNet
+        }, Entry Price: ${entryPrice}. Condition satisfied.`,
+      );
+      return true;
+    }
+
+    console.log(
+      `aNet: ${aNet}, bNet: ${bNet}, net: ${
+        aNet + bNet
+      }, Entry Price: ${entryPrice}. Condition satisfied.`,
+    );
+    return false;
+  };
+
+  const ticker = new KiteTicker({
+    api_key: apiKey,
+    access_token: accessToken,
+  });
+
+  ticker.connect();
+
+  ticker.on("connect", () => {
+    console.log("Subscribing to stocks...");
+    const items = [aToken, bToken, niftyToken];
+    ticker.subscribe(items);
+    ticker.setMode(ticker.modeFull, items);
+  });
+
+  ticker.on("ticks", (ticks) => {
+    if (!placedOrder) {
+      // Check tick and update corresponding stock bid price
+      // 2nd Sellers's Bid
+      ticks.forEach((t) => {
+        if (t.instrument_token == aToken) {
+          aSellersBid = t.depth?.sell?.[1].price;
+        } else if (t.instrument_token == bToken) {
+          bSellersBid = t.depth?.sell?.[1].price;
+        } else if (t.instrument_token == niftyToken) {
+          niftyPrice = t.last_price;
+        }
+      });
+
+      // Look for Entry
+      if (lookForEntry()) {
+        placedOrder = true;
+        placeOrder([stockA, stockB], [aBuyersBid, bBuyersBid]);
+      }
+    } else if (placedOrder) {
+      ticker.disconnect();
+    }
+  });
+};
+
+app.listen(8001, () => {
   console.log("ITM Entry started on http://localhost:8001");
 });

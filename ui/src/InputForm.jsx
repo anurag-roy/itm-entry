@@ -12,7 +12,9 @@ const InputForm = () => {
 
   const [stockA, setStockA] = useState();
   const [stockB, setStockB] = useState();
-  const [iType, setIType] = useState(localStorage.getItem("iType") || "CE");
+  const [transactionType, setTransactionType] = useState(
+    localStorage.getItem("transactionType") || "BUY",
+  );
 
   const [entryPrice, setEntryPrice] = useState();
 
@@ -25,7 +27,7 @@ const InputForm = () => {
       message.error("Missing entry price. Please input entry price and try again.");
     } else {
       axios
-        .post("http://localhost:4999/doubleCEPE", { stockA, stockB, entryPrice })
+        .post(`http://localhost:8001/itmEntry${transactionType}`, { stockA, stockB, entryPrice })
         .then((data) => console.log(data))
         .catch((error) => console.error(error));
       setState("done");
@@ -37,9 +39,19 @@ const InputForm = () => {
       <>
         <div className="form_container">
           <Divider />
-          <StockInputForm label="A" handleChange={setStockA} iType={iType} changeIType={setIType}/>
+          <StockInputForm
+            label="A"
+            handleChange={setStockA}
+            transactionType={transactionType}
+            changeTransactionType={setTransactionType}
+          />
           <Divider />
-          <StockInputForm label="B" handleChange={setStockB} iType={iType} changeIType={setIType}/>
+          <StockInputForm
+            label="B"
+            handleChange={setStockB}
+            transactionType={transactionType}
+            changeTransactionType={setTransactionType}
+          />
           <Divider />
           <div className="input_container">
             <Button type="primary" size="large">
